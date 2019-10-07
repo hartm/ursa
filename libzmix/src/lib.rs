@@ -1,11 +1,13 @@
-extern crate amcl;
-extern crate rand;
-extern crate serde_json;
+//#[macro_use]
+//extern crate lazy_static;
+extern crate amcl_wrapper;
+extern crate failure;
+#[macro_use]
+extern crate serde;
 
+#[macro_use]
 pub mod commitments;
-pub mod ffi;
-pub mod hash_functions;
-pub mod prf;
+pub mod errors;
 pub mod signatures;
-pub mod utils;
-pub mod zkl;
+#[cfg(feature = "ver_enc")]
+pub mod verifiable_encryption;

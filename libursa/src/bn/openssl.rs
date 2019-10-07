@@ -190,6 +190,7 @@ impl BigNumber {
         Ok(bn)
     }
 
+    // TODO: There should be a mod_sqr using underlying math library's square modulo since squaring is faster.
     pub fn sqr(&self, ctx: Option<&mut BigNumberContext>) -> UrsaCryptoResult<BigNumber> {
         let mut bn = BigNumber::new()?;
         match ctx {
@@ -319,6 +320,34 @@ impl BigNumber {
         }
         Ok(bn)
     }
+
+    pub fn gcd(
+        a: &BigNumber,
+        b: &BigNumber,
+        ctx: Option<&mut BigNumberContext>,
+    ) -> UrsaCryptoResult<BigNumber> {
+        let mut gcd = BigNumber::new()?;
+        match ctx {
+            Some(context) => BigNumRef::gcd(
+                &mut gcd.openssl_bn,
+                &a.openssl_bn,
+                &b.openssl_bn,
+                &mut context.openssl_bn_context,
+            )?,
+            None => {
+                let mut ctx = BigNumber::new_context()?;
+                BigNumRef::gcd(
+                    &mut gcd.openssl_bn,
+                    &a.openssl_bn,
+                    &b.openssl_bn,
+                    &mut ctx.openssl_bn_context,
+                )?;
+            }
+        }
+        Ok(gcd)
+    }
+
+    // Question: The *_word APIs seem odd. When the method is already mutating, why return the reference?
 
     pub fn add_word(&mut self, w: u32) -> UrsaCryptoResult<&mut BigNumber> {
         BigNumRef::add_word(&mut self.openssl_bn, w)?;
@@ -540,6 +569,8 @@ impl BigNumber {
         Ok(qr)
     }
 
+    // Question: Why does this need to be a Result? When is creating a BigNumber same as another
+    // BigNumber not possible given sufficient memory?
     pub fn try_clone(&self) -> UrsaCryptoResult<BigNumber> {
         let mut openssl_bn = BigNum::from_slice(&self.openssl_bn.to_vec()[..])?;
         openssl_bn.set_negative(self.is_negative());
@@ -721,7 +752,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(target_env = "msvc"))]
     #[test]
     fn test_modular_exponentiation() {
         let base = BigNumber::from_dec("12714671911903680502393098440562958150461307840092575886187217264492970515611166458444182780904860535776274190597528985988632488194981204988199325501696648896748368401254829974173258613724800116424602180755019588176641580062215499750550535543002990347313784260314641340394494547935943176226649412526659864646068220114536172189443925908781755710141006387091748541976715633668919725277837668568166444731358541327097786024076841158424402136565558677098853060675674958695935207345864359540948421232816012865873346545455513695413921957708811080877422273777355768568166638843699798663264533662595755767287970642902713301649").unwrap();
@@ -735,21 +765,6 @@ mod tests {
         let modulus = BigNumber::from_u32(13).unwrap();
         assert_eq!(
             BigNumber::from_u32(7).unwrap(),
-            base.mod_exp(&exp, &modulus, None).unwrap()
-        );
-
-        let modulus = BigNumber::from_u32(1).unwrap();
-        assert_eq!(
-            BigNumber::new().unwrap(),
-            base.mod_exp(&exp, &modulus, None).unwrap()
-        );
-
-        let modulus = BigNumber::from_u32(0).unwrap();
-        assert!(base.mod_exp(&exp, &modulus, None).is_err());
-
-        let modulus = BigNumber::from_u32(1).unwrap().set_negative(true).unwrap();
-        assert_eq!(
-            BigNumber::new().unwrap(),
             base.mod_exp(&exp, &modulus, None).unwrap()
         );
 

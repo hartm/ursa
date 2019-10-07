@@ -1,9 +1,10 @@
-mod constants;
+pub mod constants;
 #[macro_use]
 mod datastructures;
+// TODO: Prime generation and random number generation in helpers module should be moved outside cl module since they are not CL sig specific.
 #[macro_use]
-mod helpers;
-mod hash;
+pub mod helpers;
+pub mod hash;
 pub mod issuer;
 pub mod prover;
 pub mod verifier;
@@ -532,7 +533,7 @@ impl RevocationTailsGenerator {
 }
 
 pub trait RevocationTailsAccessor {
-    fn access_tail(&self, tail_id: u32, accessor: &mut FnMut(&Tail)) -> UrsaCryptoResult<()>;
+    fn access_tail(&self, tail_id: u32, accessor: &mut dyn FnMut(&Tail)) -> UrsaCryptoResult<()>;
 }
 
 /// Simple implementation of `RevocationTailsAccessor` that stores all tails as BTreeMap.
@@ -542,7 +543,7 @@ pub struct SimpleTailsAccessor {
 }
 
 impl RevocationTailsAccessor for SimpleTailsAccessor {
-    fn access_tail(&self, tail_id: u32, accessor: &mut FnMut(&Tail)) -> UrsaCryptoResult<()> {
+    fn access_tail(&self, tail_id: u32, accessor: &mut dyn FnMut(&Tail)) -> UrsaCryptoResult<()> {
         accessor(&self.tails[tail_id as usize]);
         Ok(())
     }
@@ -889,7 +890,7 @@ pub enum PredicateType {
 /// 3) Credential contains attributes with valid predicates that verifier wants the prover to satisfy.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Proof {
-    proofs: Vec<SubProof>,
+    pub proofs: Vec<SubProof>,
     aggregated_proof: AggregatedProof,
 }
 
@@ -897,6 +898,16 @@ pub struct Proof {
 pub struct SubProof {
     primary_proof: PrimaryProof,
     non_revoc_proof: Option<NonRevocProof>,
+}
+
+impl SubProof {
+    pub fn revealed_attrs(&self) -> UrsaCryptoResult<HashMap<String, String>> {
+        let mut res = HashMap::new();
+        for (k, v) in self.primary_proof.eq_proof.revealed_attrs.iter() {
+            res.insert(k.clone(), v.to_dec()?);
+        }
+        Ok(res)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
